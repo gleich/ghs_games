@@ -1,7 +1,5 @@
-use std::str::FromStr;
-
 use anyhow::{Context, Result};
-use chrono::{Date, DateTime, Local, NaiveTime, TimeZone};
+use chrono::{DateTime, Local, NaiveDate};
 use reqwest::{
     blocking::Client,
     header::{
@@ -54,7 +52,7 @@ pub struct Event {
     pub opponent: String,
     pub location: String,
     pub rescheduled: bool,
-    // pub rescheduled_date: NaiveTime,
+    pub rescheduled_date: Option<NaiveDate>,
     pub cancelled: bool,
 }
 
@@ -114,7 +112,7 @@ impl RawEvent {
             home: str_to_bool(&self.home),
             time: DateTime::parse_from_str(
                 &format!(
-                    "{}-{:0>2}-{:0>2} 0{} {}",
+                    "{}-{:0>2}-{:0>2} {:0>4} {}",
                     self.year,
                     self.month,
                     self.day,
@@ -125,13 +123,20 @@ impl RawEvent {
             )
             .context("Failed to parse datetime")?
             .with_timezone(&Local),
-            sport: String::new(), // List of sports needed
+            sport: self.name.split(" ").last().unwrap().to_string(),
             varsity: self.name.to_lowercase().contains("varsity"),
             opponent: self.opponent.to_owned(),
             location: self.location.to_owned(),
             rescheduled: !self.rescheduled_date.is_empty(),
             cancelled: str_to_bool(&self.cancelled),
-            // rescheduled_date: NaiveTime::, // Format needed
+            rescheduled_date: if self.rescheduled_date.is_empty() {
+                None
+            } else {
+                Some(NaiveDate::parse_from_str(
+                    &self.rescheduled_date,
+                    "%m/%d/%Y",
+                )?)
+            },
         }))
     }
 }
@@ -139,8 +144,9 @@ impl RawEvent {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use chrono::{DateTime, Local};
 
-    use crate::fetch::RawEvent;
+    use crate::fetch::{Event, RawEvent};
 
     #[test]
     fn fetch_this_weeks() -> Result<()> {
@@ -148,36 +154,57 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // fn clean() -> Result<()> {
-    //     assert_eq!(
-    //         RawEvent {
-    //             postponed: String::from("0"),
-    //             month: String::from("5"),
-    //             year: String::from("2022"),
-    //             day: String::from("3"),
-    //             location: String::from("Sanborn Regional High School"),
-    //             event_type: String::from("sport"),
-    //             opponent: String::from("Multiple Opponents"),
-    //             cancelled: String::from("0"),
-    //             name: String::from("Boys-Girls Varsity Outdoor Track"),
-    //             home: String::from("0"),
-    //             time: String::from("4:00 PM"),
-    //             rescheduled_date: String::from(""),
-    //         }
-    //         .clean()?,
-    //         Some(Event {
-    //             name: String::from("Boys-Girls Varsity Outdoor Track"),
-    //             home: false,
-    //             time: NaiveTime::from_str("")?,
-    //             sport: String::from(""),
-    //             varsity: true,
-    //             opponent: String::from("Multiple Opponents"),
-    //             location: String::from("Sanborn Regional High School"),
-    //             rescheduled: false,
-    //             cancelled: false,
-    //         },)
-    //     );
-    //     Ok(())
-    // }
+    #[test]
+    fn clean() -> Result<()> {
+        assert_eq!(
+            RawEvent {
+                postponed: String::from("0"),
+                month: String::from("5"),
+                year: String::from("2022"),
+                day: String::from("3"),
+                location: String::from("Sanborn Regional High School"),
+                event_type: String::from("sport"),
+                opponent: String::from("Multiple Opponents"),
+                cancelled: String::from("0"),
+                name: String::from("Boys-Girls Varsity Outdoor Track"),
+                home: String::from("0"),
+                time: String::from("4:00 PM"),
+                rescheduled_date: String::from(""),
+            }
+            .clean()?,
+            Some(Event {
+                name: String::from("Boys-Girls Varsity Outdoor Track"),
+                home: false,
+                time: DateTime::parse_from_rfc3339("2022-05-03T16:00:00-04:00")?
+                    .with_timezone(&Local),
+                sport: String::from("Track"),
+                varsity: true,
+                opponent: String::from("Multiple Opponents"),
+                location: String::from("Sanborn Regional High School"),
+                rescheduled: false,
+                rescheduled_date: None,
+                cancelled: false,
+            })
+        );
+
+        assert_eq!(
+            RawEvent {
+                postponed: String::from("0"),
+                month: String::from("5"),
+                year: String::from("2022"),
+                day: String::from("3"),
+                location: String::from("Goffstown High School"),
+                event_type: String::from("school"),
+                opponent: String::from(""),
+                cancelled: String::from("0"),
+                name: String::from("School Board Meeting"),
+                home: String::from("0"),
+                time: String::from("7:21 PM"),
+                rescheduled_date: String::from(""),
+            }
+            .clean()?,
+            None
+        );
+        Ok(())
+    }
 }
