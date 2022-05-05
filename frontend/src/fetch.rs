@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local, NaiveDate};
 use reqwest::{
-    blocking::Client,
     header::{
         ACCEPT, ACCEPT_LANGUAGE, CONNECTION, CONTENT_TYPE, COOKIE, DNT, HOST, ORIGIN, REFERER, TE,
         USER_AGENT,
     },
+    Client,
 };
 use serde::Deserialize;
 use serde_aux::prelude::*;
@@ -57,7 +57,7 @@ pub struct Event {
 }
 
 impl RawEvent {
-    pub fn fetch_this_weeks() -> Result<Vec<RawEvent>> {
+    pub async fn fetch_this_weeks() -> Result<Vec<RawEvent>> {
         let client = Client::new();
         let resp = client
         .post("https://goffstownathletics.com/main/calendarWeekEvents")
@@ -81,9 +81,9 @@ impl RawEvent {
         .header("sec-fetch-dest", "empty")
         .header("sec-fetch-mode", "cors")
         .header("sec-fetch-site", "same-origin")
-        .header(TE, "trailers").body("fromMonth=5&fromYear=2022&fromDay=3&toMonth=5&toYear=2022&toDay=7").send()?;
+        .header(TE, "trailers").body("fromMonth=5&fromYear=2022&fromDay=3&toMonth=5&toYear=2022&toDay=7").send().await?;
 
-        let raw_games: Vec<Vec<Value>> = serde_json::from_str(&resp.text()?)?;
+        let raw_games: Vec<Vec<Value>> = serde_json::from_str(&resp.text().await?)?;
         let mut games = Vec::new();
         for raw_game in raw_games.get(1).unwrap() {
             let game: RawEvent = serde_json::from_value(raw_game.clone()).unwrap();
@@ -143,14 +143,16 @@ impl RawEvent {
 
 #[cfg(test)]
 mod tests {
+    use std::future::Future;
+
     use anyhow::Result;
     use chrono::{DateTime, Local};
 
     use crate::fetch::{Event, RawEvent};
 
     #[test]
-    fn fetch_this_weeks() -> Result<()> {
-        assert!(RawEvent::fetch_this_weeks().is_ok());
+    async fn fetch_this_weeks() -> Future<Result<()>> {
+        assert!(RawEvent::fetch_this_weeks().await.is_ok());
         Ok(())
     }
 
