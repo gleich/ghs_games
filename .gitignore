@@ -1,9 +1,8 @@
-target/
-
-dist/
-
-# Added by cargo
-#
-# already existing elements were commented out
-
-#/target
+.DS_Store
+node_modules
+/build
+/.svelte-kit
+/package
+.env
+.env.*
+!.env.example
