@@ -46,7 +46,7 @@
         {#key index}
             <h1 in:fly="{{ y: -100,  duration: 2000}}">{name}</h1>
         {/key}
-        <h2 in:fade><span class="highlight">{time.format('h:mm d A')}</span> @ {location}</h2>
+        <h2 in:fade><span class="highlight">{time.format('h:mm A')}</span> @ {location}</h2>
 	{/if}
 	<p class="copyright">© Matt Gleich 2022 - mattglei.ch</p>
 </main>
